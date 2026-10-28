@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Money and metric columns must align vertically; body copy should not. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Native marker replaced by our own chevron on expandable rows. */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+.chevron {
+  transition: transform 150ms ease;
+}
+
+/* Keyboard focus stays visible everywhere without shouting on mouse click. */
+:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  :focus-visible {
+    outline-color: #818cf8;
+  }
+}

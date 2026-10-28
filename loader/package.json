@@ -1,0 +1,16 @@
+{
+  "name": "tally-cloud-analytics-loader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "B0 sync orchestrator — drives the reference Tally Database Loader into Supabase and records runs in meta.sync_runs.",
+  "scripts": {
+    "initdb": "node sync.mjs initdb",
+    "full": "node sync.mjs full",
+    "incremental": "node sync.mjs incremental"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.13.1"
+  }
+}

@@ -1,0 +1,21 @@
+# secrets
+.env
+.env.local
+web/.env.local
+
+# deps / build
+node_modules/
+web/.next/
+web/out/
+dist/
+
+# loader working artifacts (generated inside LOADER_DIR)
+loader/config.json
+
+# generated exports — contain real party names & balances
+exports/*.csv
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db

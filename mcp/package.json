@@ -1,0 +1,16 @@
+{
+  "name": "tally-cloud-analytics-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing the Tally Cloud Analytics metrics — a thin stdio wrapper over the web app's /api/metrics catalog.",
+  "bin": {
+    "tally-analytics-mcp": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "tally-cloud-analytics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Data pipeline (SQL transforms + reconciliation) for the Tally cloud analytics dashboard.",
+  "scripts": {
+    "transform": "node db/transform.mjs",
+    "fifo": "node db/compute_fifo.mjs",
+    "transform:post": "node db/transform.mjs \"\" models_post_fifo",
+    "pipeline": "npm run transform && npm run fifo && npm run transform:post && npm run check",
+    "check": "node db/reconcile.mjs",
+    "inspect": "node db/inspect.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pg": "^8.13.1"
+  }
+}

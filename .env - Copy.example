@@ -1,0 +1,25 @@
+# ─── Supabase Postgres connection ────────────────────────────────────────────
+# Use the "Session pooler" (port 5432) or the direct connection from
+# Supabase → Project Settings → Database → Connection string.
+PGHOST=
+PGPORT=5432
+PGDATABASE=postgres
+PGUSER=
+PGPASSWORD=
+PGSSLMODE=require
+
+# Full connection string (used by the web app and dbt).
+# postgresql://USER:PASSWORD@HOST:5432/postgres?sslmode=require
+DATABASE_URL=
+
+# ─── Reference Tally Database Loader ─────────────────────────────────────────
+# Path (relative to loader/sync.mjs) to the reused loader that has dist/ + tally-export-config.yaml.
+LOADER_DIR=../../tally-database-loader-utility-1.0.43
+LOAD_METHOD=insert
+
+# ─── Tally ───────────────────────────────────────────────────────────────────
+TALLY_SERVER=localhost
+TALLY_PORT=9000
+TALLY_COMPANY=NAQD CONSULTING PRIVATE LIMITED
+TALLY_FROMDATE=2020-04-01
+TALLY_TODATE=2027-03-31

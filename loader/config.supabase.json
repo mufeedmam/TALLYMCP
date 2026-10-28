@@ -1,0 +1,24 @@
+{
+  "_comment": "Reference template. sync.mjs generates the real config.json inside LOADER_DIR from .env at runtime; the DB password is passed via CLI, never written to disk.",
+  "database": {
+    "technology": "postgres",
+    "server": "<SUPABASE_HOST>",
+    "port": 5432,
+    "ssl": true,
+    "schema": "postgres",
+    "username": "<SUPABASE_USER>",
+    "password": "",
+    "loadmethod": "insert"
+  },
+  "tally": {
+    "definition": "tally-export-config.yaml",
+    "server": "localhost",
+    "port": 9000,
+    "fromdate": "2020-04-01",
+    "todate": "2027-03-31",
+    "sync": "full",
+    "batchsize": 5000,
+    "frequency": 0,
+    "company": "NAQD CONSULTING PRIVATE LIMITED"
+  }
+}
