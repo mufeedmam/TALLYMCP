@@ -120,6 +120,11 @@ shadcn components in `web/src/components/ui/*`; shell in `AppSidebar.tsx` + `(da
   every metric/page shows **0 / empty**, NOT an error — in the dashboard AND the MCP. Tells: sidebar shows
   `Last synced: never`, company reads "Not connected", all KPIs ₹0. Fix the DB (Supabase free projects
   pause after ~1 week idle — unpause in the Supabase dashboard); don't debug the app/MCP.
+- **Serverless + Supabase pooling.** On Vercel each warm function instance holds its own `pg` pool, so
+  (a) `db.ts` MUST keep a `pool.on('error')` handler or a dropped idle connection crashes the function,
+  (b) use the Supabase **transaction** pooler (`:6543`) not session (`:5432`), and (c) keep `max` small with
+  an `idleTimeoutMillis`. See the 2026-10-28 changelog entry. Symptom when wrong: data loads briefly then
+  flips to permanent "not connected" with nothing in the browser console (the error is in Vercel logs).
 - **Two different DB URLs:** root `.env` `DATABASE_URL` and `web/.env.local` `DATABASE_URL` can point at
   different Supabase projects. The web app + MCP use **`web/.env.local`**; the pipeline/loader use root
   `.env`. Keep them in sync, or point pipeline scripts at the same project you serve.
@@ -147,6 +152,20 @@ shadcn components in `web/src/components/ui/*`; shell in `AppSidebar.tsx` + `(da
 
 ## Changelog
 _Newest first. Add a dated entry every session._
+- **2026-10-28** — **Vercel deploy hardening** (`web/src/lib/db.ts` `getPool()`). Three fixes so the
+  dashboard survives serverless: (1) a `pool.on('error')` handler — without it a pooler-dropped idle
+  connection makes node-pg emit an *unhandled* error that crashes the function (the "data loads for a
+  minute then goes to 'not connected', nothing in the browser console" symptom); (2) `idleTimeoutMillis`
+  + `connectionTimeoutMillis` and a smaller `max` (env `PG_POOL_MAX`, default 3) so connections release
+  and a Supabase pooler isn't exhausted; (3) pool init wrapped in try/catch so a bad/missing
+  `DATABASE_URL` degrades to "not connected" instead of a 500 (`FUNCTION_INVOCATION_FAILED`).
+  **Deploy model:** import ONLY `web/` to Vercel (Root Directory `web`) — the `mcp/` server is stdio/local
+  and must NOT be a Vercel service (Vercel's multi-service `vercel.json` suggestion does not apply). Set
+  Vercel `DATABASE_URL` to the Supabase **transaction** pooler (`:6543`) for serverless, not session (`:5432`).
+  The MCP server stays local, pointed at the deployed URL via `ANALYTICS_BASE_URL`.
+- **2026-10-28** — Pushed to GitHub (public): https://github.com/mufeedmam/TALLYMCP (`main`). Verified the
+  pushed tree excludes `.env`, `web/.env.local`, `node_modules`, and `exports/*.csv` (added `exports/*.csv`
+  to `.gitignore`). `gh` CLI installed; GCM handled auth.
 - **2026-10-28** — Built the **MCP server** (`mcp/`): a thin stdio wrapper over `/api/metrics`
   (`server.mjs` + `package.json` + `README.md`, dep `@modelcontextprotocol/sdk` ^1.30). Reads the metric
   catalog at runtime and exposes one typed `get_*` tool per metric (from each metric's `mcp.toolName`)
