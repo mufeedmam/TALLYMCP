@@ -1,11 +1,13 @@
 // Remote MCP endpoint (Streamable HTTP, stateless) so claude.ai / Claude mobile
-// can add this dashboard as a custom connector. It speaks JSON-RPC over POST and
+// can add this dashboard as a custom connector. Speaks JSON-RPC over POST and
 // reuses the SAME in-process metric registry the dashboard renders from — so the
-// AI and the UI can't disagree, and no second network hop is involved.
+// AI and the UI can't disagree, and there's no second network hop.
 //
-// Auth: an unguessable token in the URL path (`/api/mcp/<MCP_TOKEN>`), because
-// claude.ai connectors can't easily send a custom auth header. Set MCP_TOKEN in
-// the environment; without it the endpoint refuses to serve.
+// ⚠️ TESTING POSTURE: this endpoint is intentionally UNAUTHENTICATED (Option A),
+// matching the already-public /api/metrics. claude.ai custom connectors expect
+// OAuth or a fully-open server — a path token tripped their OAuth registration.
+// Before any real/production exposure, put auth (OAuth) in front of BOTH this
+// route and /api/metrics.
 import type { NextRequest } from 'next/server';
 import { listMetrics, getMetric, runMetric } from '@/lib/analytics';
 import type { MetricDefinition, MetricParam } from '@/lib/analytics/types';
@@ -55,7 +57,7 @@ function inputSchema(params: MetricParam[] = []): Record<string, unknown> {
 }
 
 function listTools() {
-  const tools = [
+  return [
     {
       name: 'list_metrics',
       description: 'List every Tally analytics metric with its id, parameters, output columns and reconciliation source.',
@@ -77,7 +79,6 @@ function listTools() {
       inputSchema: inputSchema(m.params),
     })),
   ];
-  return tools;
 }
 
 /* ---------------- running a metric ---------------- */
@@ -164,14 +165,9 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: CORS });
 }
 
-/* ---------------- HTTP handlers ---------------- */
+/* ---------------- HTTP handlers (no auth — testing posture) ---------------- */
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  const expected = process.env.MCP_TOKEN;
-  if (!expected) return new Response('MCP endpoint not configured (set MCP_TOKEN).', { status: 503, headers: CORS });
-  if (token !== expected) return new Response('Unauthorized', { status: 401, headers: CORS });
-
+export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
@@ -187,8 +183,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   return res ? json(res) : new Response(null, { status: 202, headers: CORS });
 }
 
-// This server is request/response only (stateless) — it does not open a
-// server->client SSE stream, so GET is not supported. Clients fall back to POST.
+// Request/response only (stateless) — no server->client SSE stream, so GET isn't
+// supported. Clients fall back to POST.
 export async function GET() {
   return new Response('Tally MCP endpoint — connect an MCP client via POST (JSON-RPC over HTTP).', {
     status: 405,

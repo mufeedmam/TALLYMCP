@@ -91,12 +91,15 @@ Config via `ANALYTICS_BASE_URL` (default `http://localhost:3000`); requires the 
 with `npm --prefix mcp install`. See `mcp/README.md` for client config. Degrades to just the two generic
 tools if the catalog is unreachable at startup.
 
-**Remote MCP endpoint (for claude.ai / mobile):** `web/src/app/api/mcp/[token]/route.ts` — a stateless
+**Remote MCP endpoint (for claude.ai / mobile):** `web/src/app/api/mcp/route.ts` — a stateless
 Streamable-HTTP JSON-RPC endpoint exposing the SAME 22 tools, but **in-process** (calls the registry
-directly, no HTTP hop). Add it in claude.ai as a custom connector at `https://<app>/api/mcp/<MCP_TOKEN>`.
-Auth is a secret token in the URL path (claude.ai connectors can't send custom headers); set `MCP_TOKEN`
-in env — missing → 503, wrong → 401. The stdio server (`mcp/`) is for Claude Desktop/Code; this route is
-for the web/mobile clients that can only reach a remote URL.
+directly, no HTTP hop). Add it in claude.ai as a custom connector at `https://<app>/api/mcp`.
+**⚠️ UNAUTHENTICATED (testing posture, "Option A").** claude.ai connectors expect OAuth or a fully-open
+server — a secret token in the URL path tripped claude.ai's OAuth dynamic-client-registration ("Couldn't
+register with …'s sign-in service"), so the token gate was removed. This matches the already-public
+`/api/metrics`. **Before production, put OAuth in front of BOTH this route and `/api/metrics`** (a full
+rebuild with login/OAuth is planned). The stdio server (`mcp/`) remains the private option (Claude
+Desktop/Code, local); this route is for web/mobile clients that can only reach a remote URL.
 
 **Key web modules** (`web/src/lib/analytics/`): `receivablesData.ts`, `payablesData.ts`, `inventoryData.ts`,
 `cashflow.ts`, `profitability.ts`, `overview.ts`, `fifo.ts` (wraps `db/fifo-core.mjs` — `turbopack.root`
@@ -159,8 +162,16 @@ shadcn components in `web/src/components/ui/*`; shell in `AppSidebar.tsx` + `(da
 
 ## Changelog
 _Newest first. Add a dated entry every session._
-- **2026-10-28** — Added a **remote MCP endpoint** for claude.ai / mobile custom connectors:
-  `web/src/app/api/mcp/[token]/route.ts`. Stateless Streamable-HTTP JSON-RPC (POST), reusing the
+- **2026-10-28** — **Remote MCP endpoint → no-auth (Option A, testing).** claude.ai's custom-connector
+  flow tried OAuth dynamic client registration against the token-gated endpoint and failed ("Couldn't
+  register with …'s sign-in service"). Since claude.ai expects OAuth or a fully-open server — and the app
+  is already public via `/api/metrics` — moved the route to a fixed unauthenticated path
+  `web/src/app/api/mcp/route.ts` and deleted `…/mcp/[token]/route.ts` (and its `MCP_TOKEN` gate). Connector
+  URL is now just `https://<app>/api/mcp`. Verified on :3000: initialize, tools/list (22),
+  tools/call `get_inventory_snapshot` (live), old `/api/mcp/<token>` → 404. **Planned:** full rebuild with
+  login + OAuth securing both `/api/mcp` and `/api/metrics`; this open posture is temporary for testing.
+- **2026-10-28** — Added a **remote MCP endpoint** for claude.ai / mobile custom connectors (initially
+  `web/src/app/api/mcp/[token]/route.ts`, later moved to no-auth — see entry above). Stateless Streamable-HTTP JSON-RPC (POST), reusing the
   **in-process** metric registry (same 22 tools as the stdio server — no HTTP hop). Auth = secret token
   in the URL path (`/api/mcp/<MCP_TOKEN>`), because claude.ai connectors can't send custom auth headers;
   set `MCP_TOKEN` in env (added to `web/.env.local` for local dev). Verified on :3000 — initialize (echoes
