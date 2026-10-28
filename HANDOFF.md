@@ -162,6 +162,20 @@ shadcn components in `web/src/components/ui/*`; shell in `AppSidebar.tsx` + `(da
 
 ## Changelog
 _Newest first. Add a dated entry every session._
+- **2026-10-28** — **Fixed inventory `sales_value` / COGS (classify by voucher-type parent).**
+  `sales_value`/`purchase_value` in `db/models/50_mart_inventory.sql` (`mart_inventory_items`,
+  `mart_inventory_monthly`) and `inventoryData.loadMovement` were computed by quantity SIGN, which counted
+  **Sales Orders** + **Purchase Orders** (they double-count the invoice line) and **Stock Journal /
+  PRODUCTION** (manufacturing transfers between item names) as real sales/purchases — inflating sales to
+  ₹41.9Cr and making margin meaningless (a sales-only fix gave −68%). Now classified by
+  `mst_vouchertype.parent`: `sales_value = Σ amount over parent in (Sales, Credit Note)` and
+  `purchase_value = Σ -amount over parent in (Purchase, Debit Note)` — both net of returns, both excluding
+  orders + Stock Journal/PRODUCTION. Result: **sales ₹15.40Cr, COGS ₹13.23Cr, gross profit ₹2.17Cr,
+  margin 14.1%**. `mart_inventory_by_group` and `inventory.{snapshot,items,groups,movement,profitability}`
+  inherit it; marts rebuilt on Supabase. Caveat unchanged: value-based COGS shifts per-GROUP margin
+  between Raw Materials (−) and Finished Goods (+) for manufactured/repackaged items — aggregate is right,
+  those items stay `profit_unreliable`. Voucher-type model: `mst_vouchertype(name, parent)`;
+  `trn_voucher.voucher_type` → parent.
 - **2026-10-28** — **Remote MCP endpoint → no-auth (Option A, testing).** claude.ai's custom-connector
   flow tried OAuth dynamic client registration against the token-gated endpoint and failed ("Couldn't
   register with …'s sign-in service"). Since claude.ai expects OAuth or a fully-open server — and the app

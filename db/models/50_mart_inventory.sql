@@ -4,9 +4,15 @@
 --   * mst_stock_item.*_value is NEGATIVE for stock-in-hand (a debit asset in Tally's
 --     convention). True positive value = -value.
 --   * trn_inventory.quantity is physical: +inward, -outward. Net closing qty is +.
---   * trn_inventory.amount is credit-positive: inward (purchase) negative, outward
---     (sale) positive. So sales value = +amount on outward, purchase cost = -amount
---     on inward. Order/non-accounting vouchers are excluded (as in fact_gl).
+--   * trn_inventory.amount is credit-positive (sale +, purchase -). SALES and
+--     PURCHASE value are classified by the voucher-type PARENT (mst_vouchertype),
+--     NOT by quantity sign:
+--       sales_value    = Sum(amount)  over parent in (Sales, Credit Note)   -- net of returns
+--       purchase_value = Sum(-amount) over parent in (Purchase, Debit Note) -- net of returns
+--     This counts only real sales/purchases and excludes Sales/Purchase ORDERS
+--     (which double-count the invoice line) and Stock Journal / PRODUCTION
+--     (manufacturing transfers between item names) — both of which otherwise
+--     inflate sales AND cogs. Order/non-accounting vouchers are excluded (as in fact_gl).
 --
 -- PROFITABILITY per item uses the VALUE-BASED accounting COGS identity:
 --   cogs         = opening_value + purchases - closing_value   (what was consumed, in ₹)
@@ -31,12 +37,14 @@ with mov as (
     ti.item,
     sum(case when ti.quantity > 0 then ti.quantity else 0 end)      as inward_qty,
     sum(case when ti.quantity < 0 then -ti.quantity else 0 end)     as outward_qty,
-    sum(case when ti.quantity < 0 then ti.amount else 0 end)        as sales_value,     -- outward (credit +)
-    sum(case when ti.quantity > 0 then -ti.amount else 0 end)       as purchase_value,  -- inward (flip debit to +)
+    -- Value by voucher-type PARENT (see header): real sales/purchases only.
+    sum(ti.amount)  filter (where vt.parent in ('Sales', 'Credit Note'))   as sales_value,
+    sum(-ti.amount) filter (where vt.parent in ('Purchase', 'Debit Note')) as purchase_value,
     max(v.date)                                                     as last_movement_date,
     count(*)                                                        as movement_lines
   from trn_inventory ti
   join trn_voucher v on v.guid = ti.guid
+  left join mst_vouchertype vt on vt.name = v.voucher_type
   where v.is_accounting_voucher = 1 or v.is_inventory_voucher = 1
   group by ti.item
 ),
@@ -100,11 +108,12 @@ select
   to_char(v.date, 'YYYY-MM')                                        as year_month,
   round(sum(case when ti.quantity > 0 then ti.quantity else 0 end), 3)   as inward_qty,
   round(sum(case when ti.quantity < 0 then -ti.quantity else 0 end), 3)  as outward_qty,
-  round(sum(case when ti.quantity > 0 then -ti.amount else 0 end), 2)    as purchase_value,
-  round(sum(case when ti.quantity < 0 then ti.amount else 0 end), 2)     as sales_value,
+  round(coalesce(sum(-ti.amount) filter (where vt.parent in ('Purchase', 'Debit Note')), 0), 2) as purchase_value,
+  round(coalesce(sum(ti.amount)  filter (where vt.parent in ('Sales', 'Credit Note')), 0), 2)   as sales_value,
   count(*)                                                          as movement_lines
 from trn_inventory ti
 join trn_voucher v on v.guid = ti.guid
+left join mst_vouchertype vt on vt.name = v.voucher_type
 where v.is_accounting_voucher = 1 or v.is_inventory_voucher = 1
 group by to_char(v.date, 'YYYY-MM')
 order by year_month desc;

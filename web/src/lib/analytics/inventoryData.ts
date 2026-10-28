@@ -123,15 +123,19 @@ export async function loadMovement(filters: InventoryFilters = {}): Promise<Item
     item: string; stock_group: string | null;
     inward_qty: string; outward_qty: string; purchase_value: string; sales_value: string;
   }>(
+    // sales_value / purchase_value are classified by voucher-type PARENT (real
+    // Sales/Purchase net of returns), matching mart_inventory_items — so Sales/
+    // Purchase orders and Stock Journal/PRODUCTION don't inflate either side.
     `select ti.item,
             si.parent as stock_group,
             sum(case when ti.quantity > 0 then ti.quantity else 0 end)   as inward_qty,
             sum(case when ti.quantity < 0 then -ti.quantity else 0 end)  as outward_qty,
-            sum(case when ti.quantity > 0 then -ti.amount else 0 end)    as purchase_value,
-            sum(case when ti.quantity < 0 then ti.amount else 0 end)     as sales_value
+            coalesce(sum(-ti.amount) filter (where vt.parent in ('Purchase', 'Debit Note')), 0) as purchase_value,
+            coalesce(sum(ti.amount)  filter (where vt.parent in ('Sales', 'Credit Note')), 0)   as sales_value
      from trn_inventory ti
      join trn_voucher v on v.guid = ti.guid
      left join mst_stock_item si on si.name = ti.item
+     left join mst_vouchertype vt on vt.name = v.voucher_type
      where (v.is_accounting_voucher = 1 or v.is_inventory_voucher = 1)
        and ($1::date is null or v.date >= $1::date)
        and ($2::date is null or v.date <= $2::date)
