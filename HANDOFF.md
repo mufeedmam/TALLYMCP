@@ -91,6 +91,13 @@ Config via `ANALYTICS_BASE_URL` (default `http://localhost:3000`); requires the 
 with `npm --prefix mcp install`. See `mcp/README.md` for client config. Degrades to just the two generic
 tools if the catalog is unreachable at startup.
 
+**Remote MCP endpoint (for claude.ai / mobile):** `web/src/app/api/mcp/[token]/route.ts` — a stateless
+Streamable-HTTP JSON-RPC endpoint exposing the SAME 22 tools, but **in-process** (calls the registry
+directly, no HTTP hop). Add it in claude.ai as a custom connector at `https://<app>/api/mcp/<MCP_TOKEN>`.
+Auth is a secret token in the URL path (claude.ai connectors can't send custom headers); set `MCP_TOKEN`
+in env — missing → 503, wrong → 401. The stdio server (`mcp/`) is for Claude Desktop/Code; this route is
+for the web/mobile clients that can only reach a remote URL.
+
 **Key web modules** (`web/src/lib/analytics/`): `receivablesData.ts`, `payablesData.ts`, `inventoryData.ts`,
 `cashflow.ts`, `profitability.ts`, `overview.ts`, `fifo.ts` (wraps `db/fifo-core.mjs` — `turbopack.root`
 in `next.config.ts` is set to repo root so this cross-import resolves), `receivablesConfig.ts`,
@@ -152,6 +159,15 @@ shadcn components in `web/src/components/ui/*`; shell in `AppSidebar.tsx` + `(da
 
 ## Changelog
 _Newest first. Add a dated entry every session._
+- **2026-10-28** — Added a **remote MCP endpoint** for claude.ai / mobile custom connectors:
+  `web/src/app/api/mcp/[token]/route.ts`. Stateless Streamable-HTTP JSON-RPC (POST), reusing the
+  **in-process** metric registry (same 22 tools as the stdio server — no HTTP hop). Auth = secret token
+  in the URL path (`/api/mcp/<MCP_TOKEN>`), because claude.ai connectors can't send custom auth headers;
+  set `MCP_TOKEN` in env (added to `web/.env.local` for local dev). Verified on :3000 — initialize (echoes
+  protocolVersion), tools/list (22), tools/call `get_receivables_snapshot` (live ₹1.41Cr), notification→202,
+  wrong token→401, missing `MCP_TOKEN`→503. **Connect:** set `MCP_TOKEN` in Vercel, redeploy, then in
+  claude.ai → Settings → Connectors → Add custom connector → `https://<app>/api/mcp/<MCP_TOKEN>`.
+  ⚠️ `/api/metrics` is still public/unauthenticated — only `/api/mcp` is token-gated.
 - **2026-10-28** — **Vercel deploy hardening** (`web/src/lib/db.ts` `getPool()`). Three fixes so the
   dashboard survives serverless: (1) a `pool.on('error')` handler — without it a pooler-dropped idle
   connection makes node-pg emit an *unhandled* error that crashes the function (the "data loads for a
